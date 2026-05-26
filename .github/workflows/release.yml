@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build-${{ matrix.platform.id }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: { id: darwin-arm64, target: aarch64-apple-darwin, binary: brink }
+            os: macos-latest
+          - platform: { id: darwin-x64, target: x86_64-apple-darwin, binary: brink }
+            os: macos-latest
+          - platform: { id: linux-x64, target: x86_64-unknown-linux-gnu, binary: brink }
+            os: ubuntu-latest
+          - platform: { id: linux-arm64, target: aarch64-unknown-linux-gnu, binary: brink }
+            os: ubuntu-latest
+          - platform: { id: win32-x64, target: x86_64-pc-windows-msvc, binary: brink.exe }
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+
+      - name: Install cross toolchain (linux-arm64)
+        if: matrix.platform.id == 'linux-arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.platform.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p "artifact/${{ matrix.platform.id }}"
+          cp "target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary }}" \
+            "artifact/${{ matrix.platform.id }}/${{ matrix.platform.binary }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.id }}
+          path: artifact/${{ matrix.platform.id }}
+
+  publish-npm:
+    name: publish-npm
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Sync version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node scripts/sync-version.js "$VERSION"
+        working-directory: npm
+
+      - name: Place platform binaries
+        run: |
+          for id in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64; do
+            src="artifacts/${id}"
+            dest="platforms/${id}"
+            mkdir -p "$dest"
+            if [ -f "${src}/brink.exe" ]; then
+              cp "${src}/brink.exe" "${dest}/brink.exe"
+            else
+              cp "${src}/brink" "${dest}/brink"
+              chmod +x "${dest}/brink"
+            fi
+          done
+        working-directory: npm
+
+      - name: Publish platform packages
+        run: |
+          for dir in platforms/*/; do
+            echo "Publishing ${dir}..."
+            npm publish --access public
+          done
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish brink-git
+        run: npm publish --access public
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github-release:
+    name: github-release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Pack release archives
+        run: |
+          mkdir release
+          for id in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64; do
+            (cd "artifacts/${id}" && zip -r "../../release/brink-git-${id}.zip" .)
+          done
+          ls -la release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          generate_release_notes: true

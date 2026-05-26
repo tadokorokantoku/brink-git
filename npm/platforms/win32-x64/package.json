@@ -1,0 +1,20 @@
+{
+  "name": "brink-git-win32-x64",
+  "version": "0.1.0",
+  "description": "Native brink binary for win32-x64",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tadokorokantoku/brink-git.git"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "brink.exe"
+  ],
+  "preferUnplugged": true
+}

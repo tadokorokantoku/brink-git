@@ -1,0 +1,7 @@
+/target
+/node_modules
+/npm/binaries
+/npm/platforms/**/brink
+/npm/platforms/**/brink.exe
+*.tgz
+.DS_Store
