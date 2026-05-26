@@ -32,6 +32,8 @@ const PLATFORMS = [
   },
   {
     id: "win32-x64",
+    // npm blocks "win32" in new package names (spam detection)
+    npmName: "brink-git-windows-x64",
     target: "x86_64-pc-windows-msvc",
     binary: "brink.exe",
     os: ["win32"],
@@ -40,6 +42,10 @@ const PLATFORMS = [
 ];
 
 function optionalPackageName(platformId) {
+  const platform = PLATFORMS.find((p) => p.id === platformId);
+  if (platform?.npmName) {
+    return platform.npmName;
+  }
   return `brink-git-${platformId}`;
 }
 

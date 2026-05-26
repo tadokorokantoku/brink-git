@@ -42,7 +42,7 @@ if (!skipPlatforms) {
     }
     const dir = path.join(npmRoot, "platforms", p.id);
     console.log(`\nPublishing ${optionalPackageName(p.id)}...`);
-    run(`npm publish ${flags}`.trim(), dir);
+    run(`npm publish ${flags}`.trim(), dir); // cwd = platform package dir
   }
 }
 

@@ -1,5 +1,5 @@
 {
-  "name": "brink-git-win32-x64",
+  "name": "brink-git-windows-x64",
   "version": "0.1.0",
   "description": "Native brink binary for win32-x64",
   "license": "MIT",
