@@ -101,7 +101,7 @@ jobs:
         run: |
           for dir in platforms/*/; do
             echo "Publishing ${dir}..."
-            npm publish --access public
+            (cd "$dir" && npm publish --access public)
           done
         working-directory: npm
         env:
